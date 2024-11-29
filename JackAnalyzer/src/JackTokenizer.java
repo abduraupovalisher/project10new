@@ -7,8 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static myenum.StringEnum.*;
-import static myenum.StringEnum.KEYWORD_FIELD;
-import static myenum.StringEnum.KEYWORD_STATIC;
 import static myenum.TokenType.*;
 
 public class JackTokenizer {
@@ -22,7 +20,7 @@ public class JackTokenizer {
 
     public JackTokenizer(String filePath) {
         initPointer();
-        tokens = new ArrayList();
+        tokens = new ArrayList<>();
         String line;
         try {
             BufferedReader in = new BufferedReader(new FileReader(filePath));
@@ -32,12 +30,12 @@ public class JackTokenizer {
             this.fileName = tempFileName.substring(0, tempFileName.lastIndexOf('.'));
             line = in.readLine();
 
-            // variable to check if the line is a multi-line comment
+            // Variable to check if the line is a multi-line comment
             boolean isMuilLineNeglect = false;
             while (line != null) {
                 line = line.trim();
 
-                // check if the line is a multi-line comment
+                // Multi-line comment handling
                 if (line.startsWith("/*") && !line.endsWith("*/")) {
                     isMuilLineNeglect = true;
                     line = in.readLine();
@@ -51,24 +49,23 @@ public class JackTokenizer {
                     continue;
                 }
 
-                // neglect empty lines and single line comments
+                // Neglect empty lines and single-line comments
                 if (line.equals("") || isMuilLineNeglect || line.startsWith("//")) {
                     line = in.readLine();
                     continue;
                 }
 
-                // e.g. let x="hello world";
-                // split the line into ["let x=", "hello world"], and only tokenize the first part, and add the second part as string constant
+                // Tokenize line while handling string constants
                 String[] segment = line.split("//")[0].trim().split("\"");
                 boolean even = true;
                 for (int i = 0; i < segment.length; i++) {
                     String statement = segment[i];
                     if (even) {
                         String[] words = statement.split("\\s+");
-                        for (int j = 0; j < words.length; j++) {
-                            List<String> thisLineTokes = new ArrayList<>();
-                            splitToToken(words[j], thisLineTokes);
-                            tokens.addAll(thisLineTokes);
+                        for (String word : words) {
+                            List<String> thisLineTokens = new ArrayList<>();
+                            splitToToken(word, thisLineTokens);
+                            tokens.addAll(thisLineTokens);
                         }
                         even = false;
                     } else {
@@ -101,8 +98,7 @@ public class JackTokenizer {
         }
         boolean isContainSymbol = false;
 
-        for (int i = 0; i < symbols.size(); i++) {
-            String symbol = symbols.get(i);
+        for (String symbol : symbols) {
             if (word.contains(symbol)) {
                 isContainSymbol = true;
                 int symbolIdx = word.indexOf(symbol);
@@ -124,43 +120,45 @@ public class JackTokenizer {
         this.thisToken = tokens.get(pointer);
     }
 
-
     public Boolean hasMoreTokens() {
         return pointer < tokens.size() - 1;
     }
 
+    /**
+     * Determines the type of the current token.
+     *
+     * @return the TokenType of the current token.
+     * @throws RuntimeException if the token starts with a digit but is not a valid integer constant.
+     */
+    public TokenType tokenType() {
+        // Check if the current token is a keyword
+        if (StringUtils.isKeyword(thisToken)) {
+            return KEYWORD;
+        }
 
-//    public TokenType tokenType() {
-//        // TODO: Implement token type determination logic
-//        // Hints:
-//        // - Check if `thisToken` is in the `keywords` list and return `KEYWORD` if true.
-//        // - Check if `thisToken` is in the `symbols` list and return `SYMBOL` if true.
-//        // - Use `NumberUtils.isNumeric(thisToken)` to check for numeric values and return `INT_CONSTANT` if true.
-//        // - Check if `thisToken` starts and ends with double quotes to identify string constants and return `STRING_CONSTANT` if true.
-//        // - If `thisToken` starts with a digit, throw a `RuntimeException` for syntax error.
-//        // - If none of the above conditions are met, return `IDENTIFIER`.
-//        return null;
-//    }
-public TokenType tokenType() {
-    if (StringUtils.isKeyword(thisToken)) {
-        return KEYWORD;
-    }
-    if (symbols.contains(thisToken)) {
-        return SYMBOL;
-    }
-    if (NumberUtils.isNumeric(thisToken)) {
-        return INT_CONSTANT;
-    }
-    if (thisToken.startsWith("\"") && thisToken.endsWith("\"")) {
-        return STRING_CONSTANT;
-    }
-    if (Character.isDigit(thisToken.charAt(0))) {
-        throw new RuntimeException("Syntax error: Identifier cannot start with a digit.");
-    }
-    return IDENTIFIER;
-}
+        // Check if the current token is a symbol
+        if (symbols.contains(thisToken)) {
+            return SYMBOL;
+        }
 
+        // Check if the current token is an integer constant
+        if (NumberUtils.isNumeric(thisToken)) {
+            return INT_CONSTANT;
+        }
 
+        // Check if the current token is a string constant
+        if (thisToken.startsWith("\"") && thisToken.endsWith("\"")) {
+            return STRING_CONSTANT;
+        }
+
+        // Throw a syntax error if the token starts with a digit but isn't a valid integer constant
+        if (Character.isDigit(thisToken.charAt(0))) {
+            throw new RuntimeException("Syntax error: Identifier cannot start with a digit.");
+        }
+
+        // If none of the above, assume the token is an identifier
+        return IDENTIFIER;
+    }
 
     public String keyword() {
         if (tokenType() != KEYWORD) {
@@ -221,107 +219,5 @@ public TokenType tokenType() {
             case INT_CONSTANT -> String.valueOf(intVal());
             case STRING_CONSTANT -> stringVal();
         };
-    }
-
-    public String getThisTokenAsTag() {
-        return switch (tokenType()) {
-            case SYMBOL -> StringUtils.wrapBySymbolTag(symbol());
-            case KEYWORD -> StringUtils.wrapByKeywordTag(keyword());
-            case IDENTIFIER -> StringUtils.wrapByIdentifierTag(identifier());
-            case INT_CONSTANT -> StringUtils.wrapByIntegerConstantTag(String.valueOf(intVal()));
-            case STRING_CONSTANT -> StringUtils.wrapByStringConstantTag(stringVal());
-        };
-    }
-
-    public String getFileName() {
-        return fileName;
-    }
-
-    public String getFilePath() {
-        return filePath;
-    }
-
-    public boolean isKeywordConstant() {
-        if (thisToken.equals(KEYWORD_TRUE) ||
-                thisToken.equals(KEYWORD_FALSE) ||
-                thisToken.equals(KEYWORD_NULL) ||
-                thisToken.equals(KEYWORD_THIS)) {
-            return true;
-        }
-        return false;
-    }
-
-
-    public boolean isFunKeyword() {
-        if (thisToken.equals(KEYWORD_CONSTRUCTOR) ||
-                thisToken.equals(KEYWORD_FUNCTION) ||
-                thisToken.equals(KEYWORD_METHOD)) {
-            return true;
-        }
-        return false;
-    }
-
-    public boolean isPrimitiveType() {
-        if (thisToken.equals(KEYWORD_INT) ||
-                thisToken.equals(KEYWORD_CHAR) ||
-                thisToken.equals(KEYWORD_BOOLEAN)) {
-            return true;
-        }
-        return false;
-    }
-
-    public boolean isStatement() {
-        if (tokenType() == TokenType.KEYWORD &&
-                (thisToken.equals(KEYWORD_LET) ||
-                        thisToken.equals(KEYWORD_IF) ||
-                        thisToken.equals(KEYWORD_WHILE) ||
-                        thisToken.equals(KEYWORD_DO) ||
-                        thisToken.equals(KEYWORD_RETURN))) {
-            return true;
-        }
-        return false;
-    }
-
-    public boolean isClassVarType() {
-        if (thisToken.equals(KEYWORD_FIELD) ||
-                thisToken.equals(KEYWORD_STATIC)) {
-            return true;
-        }
-        return false;
-    }
-
-    public boolean isVarType() {
-        if (thisToken.equals(KEYWORD_VAR)) {
-            return true;
-        }
-        return false;
-    }
-
-    public boolean isOp() {
-        if (tokenType() == TokenType.SYMBOL) {
-            switch (thisToken) {
-                case "+":
-                case "-":
-                case "*":
-                case "/":
-                case "&":
-                case "|":
-                case "<":
-                case ">":
-                case "=":
-                    return true;
-                default:
-                    return false;
-            }
-        }
-        return false;
-    }
-
-    public boolean isUnaryOp() {
-        if (tokenType() == TokenType.SYMBOL &&
-                (thisToken.equals("-") || thisToken.equals("~"))) {
-            return true;
-        }
-        return false;
     }
 }
